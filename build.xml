@@ -35,6 +35,9 @@
                 <path location="${jar.dir}/${ant.project.name}.jar"/>
             </classpath>
         </java>
+	   <exec executable="name-of-executable">
+	      <arg value="${arg0}"/>
+	   </exec>
     </target>
 
     <target name="clean-build" depends="clean,jar"/>
