@@ -29,15 +29,13 @@
     </target>
 
     <target name="run" depends="jar">
-        <java fork="true" classname="${main-class}">
+        <java fork="true" classname="${main-class}" executable="${jar.dir}/${ant.project.name}.jar">
             <classpath>
                 <path refid="classpath"/>
                 <path location="${jar.dir}/${ant.project.name}.jar"/>
             </classpath>
+        	<arg value="${arg0}"/>
         </java>
-	   <exec executable="name-of-executable">
-	      <arg value="${arg0}"/>
-	   </exec>
     </target>
 
     <target name="clean-build" depends="clean,jar"/>
