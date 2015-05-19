@@ -41,14 +41,14 @@ public class GridRenderer {
 	public static void main(String[] args) {
 		try {
 			String localhost = InetAddress.getLocalHost().getHostName();
-			GlobusURL src = new GlobusURL(FTP_PROTOCOL + "://" + localhost + POVRAY_DIR + "/");
+			GlobusURL src = new GlobusURL(FTP_PROTOCOL + "://" + localhost + SCHERK_PATH);
 			
 			//TODO: proxy-init check
 			
 			for (String node : NODES) {
 				// Copy files to node
 				if(!localhost.equals(node)) {
-					GlobusURL dest = new GlobusURL(FTP_PROTOCOL + "://" + localhost + SCHERK_PATH);
+					GlobusURL dest = new GlobusURL(FTP_PROTOCOL + "://" + node + SCHERK_PATH);
 	
 					UrlCopy u = new UrlCopy();
 					u.setSourceUrl(src);
