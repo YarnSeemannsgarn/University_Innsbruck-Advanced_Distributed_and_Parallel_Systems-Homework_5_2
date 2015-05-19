@@ -5,6 +5,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import org.globus.gram.GramJob;
+import org.globus.gram.GramJobRun;
 import org.globus.io.urlcopy.UrlCopy;
 import org.globus.util.ConfigUtil;
 import org.globus.util.GlobusURL;
@@ -24,8 +26,8 @@ public class GridRenderer {
 	private static Path HOME_DIR = Paths.get(System.getProperty("user.home"));
 	private static Path POVRAY_DIR = CWD.resolve(POVRAY);
 	private static Path POVRAY_FILE = POVRAY_DIR.resolve(POVRAY);
-	private static Path GM_FILE = POVRAY_DIR.resolve(GM);
 	private static Path SCHERK_FILE = POVRAY_DIR.resolve(SCHERK);
+	private static Path GM_FILE = POVRAY_DIR.resolve(GM);	
 	private static Path RESULT_DIR = CWD.resolve(RESULTS);
 	private static Path RESULT_FILE = RESULT_DIR.resolve("result.gif");	
 	
@@ -45,11 +47,15 @@ public class GridRenderer {
 		try {
 			String localhost = InetAddress.getLocalHost().getHostName();
 			// Relativize path for globus url
-			GlobusURL povray_src = new GlobusURL(FTP_PROTOCOL + "://" + localhost + "/" + HOME_DIR.relativize(POVRAY_FILE));
-			GlobusURL scherk_src = new GlobusURL(FTP_PROTOCOL + "://" + localhost + "/" + HOME_DIR.relativize(SCHERK_FILE));
-			
+			GlobusURL povraySrc = new GlobusURL(FTP_PROTOCOL + "://" + localhost + "/" + HOME_DIR.relativize(POVRAY_FILE));
+			GlobusURL scherkSrc = new GlobusURL(FTP_PROTOCOL + "://" + localhost + "/" + HOME_DIR.relativize(SCHERK_FILE));
+						
 			UrlCopy u = new UrlCopy();
-			u.setCredentials(getDefaultCredential());
+			GSSCredential cred = getDefaultCredential();
+			u.setCredentials(cred);
+			
+			GramJob mkdirJob = new GramJob(cred, "mkdir -p  ~" + REMOTE_POVRAY_DIR);
+			mkdirJob.request(cred.getName().toString());
 
 			//TODO: proxy-init check
 			
@@ -58,14 +64,14 @@ public class GridRenderer {
 				// It is not possible to copy directories with GlobusURL class, so just copy files individually
 				if(!localhost.equals(node)) {
 					//TODO: threads?
-					u.setSourceUrl(povray_src);
-					GlobusURL povray_dest = new GlobusURL(FTP_PROTOCOL + "://" + node + REMOTE_POVRAY_FILE);
-					u.setDestinationUrl(povray_dest);
+					u.setSourceUrl(povraySrc);
+					GlobusURL povrayDest = new GlobusURL(FTP_PROTOCOL + "://" + node + REMOTE_POVRAY_FILE);
+					u.setDestinationUrl(povrayDest);
 					u.copy();					
 					
-					u.setSourceUrl(scherk_src);
-					GlobusURL scherk_dest = new GlobusURL(FTP_PROTOCOL + "://" + node + REMOTE_SCHERK_FILE);
-					u.setDestinationUrl(scherk_dest);
+					u.setSourceUrl(scherkSrc);
+					GlobusURL scherkDest = new GlobusURL(FTP_PROTOCOL + "://" + node + REMOTE_SCHERK_FILE);
+					u.setDestinationUrl(scherkDest);
 					u.copy();					
 				}
 			}
