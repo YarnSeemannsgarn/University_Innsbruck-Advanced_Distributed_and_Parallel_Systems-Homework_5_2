@@ -122,20 +122,21 @@ public class GridRenderer {
 		private int subsetEndFrame;
 		private int frames;
 		private int i;
-		private boolean copy;
+		private boolean localhost;
 
-		public RenderFilesOnNode(String node, int subsetStartFrame, int subsetEndFrame, int frames, int i, boolean copy) {
+		public RenderFilesOnNode(String node, int subsetStartFrame, int subsetEndFrame, int frames, int i, boolean localhost) {
 			this.node = node;
 			this.subsetStartFrame = subsetStartFrame;
 			this.subsetEndFrame = subsetEndFrame;
 			this.frames = frames;
 			this.i = i;
-			this.copy = copy;
+			this.localhost = localhost;
 		}
 
 		public void run() {
 			try{
-				if(copy) {
+				System.out.println("Render frames " + subsetStartFrame + "-" + subsetEndFrame + " on node: " + node);
+				if(!localhost) {
 					System.out.println("Cpoy files to node: " + node);
 					// Create povray directory
 					String rsl = "&(executable=/bin/mkdir)(arguments='-p' '" + REMOTE_POVRAY_DIR + "')";
@@ -156,30 +157,31 @@ public class GridRenderer {
 					GlobusURL scherkDest = new GlobusURL(FTP_PROTOCOL + "://" + node + "/" + REMOTE_SCHERK_FILE);
 					u.setDestinationUrl(scherkDest);
 					u.copy();
+					
+					// Make povray runnable
+					rsl = "&(executable=/bin/chmod)(arguments='+x' '" + REMOTE_POVRAY_FILE + "')";
+					GramJob chmodJob = new GramJob(cred, rsl);
+					chmodJob.request(node);
+
+					// Create result directory
+					rsl = "&(executable=/bin/mkdir)(arguments='-p' '" + REMOTE_OUTPUT_DIR + "')";
+					GramJob mkdirJob2 = new GramJob(cred, rsl);
+					mkdirJob2.request(node);
+
+					// Wait for jobs
+					waitForJob(chmodJob);
+					waitForJob(mkdirJob2);
+
+					// Render Files
+					rsl = "&(executable=~/ " + REMOTE_POVRAY_FILE + ")(arguments='+I" + REMOTE_SCHERK_FILE + 
+							" +O" + REMOTE_OUTPUT_FILES + " +FN +W1024 +H768" + " +KFI" + 1 + " +KFF" + frames + 
+							" +SF" + subsetStartFrame + " +EF" + subsetEndFrame + " -A0.1 +R2 +KI0 +KF1 +KC -P')";
+					GramJob renderJob = new GramJob(cred, rsl);
+					waitForJob(renderJob);					
 				}
-
-				System.out.println("Render frames " + subsetStartFrame + "-" + subsetEndFrame + " on node: " + node);
-
-				// Make povray runnable
-				String rsl = "&(executable=/bin/chmod)(arguments='+x' '" + REMOTE_POVRAY_FILE + "')";
-				GramJob chmodJob = new GramJob(cred, rsl);
-				chmodJob.request(node);
-
-				// Create result directory
-				rsl = "&(executable=/bin/mkdir)(arguments='-p' '" + REMOTE_OUTPUT_DIR + "')";
-				GramJob mkdirJob2 = new GramJob(cred, rsl);
-				mkdirJob2.request(node);
-
-				// Wait for jobs
-				waitForJob(chmodJob);
-				waitForJob(mkdirJob2);
-
-				// Render Files
-				rsl = "&(executable=~/ " + REMOTE_POVRAY_FILE + ")(arguments='+I" + REMOTE_SCHERK_FILE + 
-						" +O" + REMOTE_OUTPUT_FILES + " +FN +W1024 +H768" + " +KFI" + 1 + " +KFF" + frames + 
-						" +SF" + subsetStartFrame + " +EF" + subsetEndFrame + " -A0.1 +R2 +KI0 +KF1 +KC -P'";
-				GramJob renderJob = new GramJob(cred, rsl);
-				waitForJob(renderJob);
+				else {
+					//TODO
+				}
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
