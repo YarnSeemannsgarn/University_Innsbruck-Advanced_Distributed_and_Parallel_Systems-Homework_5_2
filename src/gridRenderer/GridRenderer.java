@@ -45,8 +45,8 @@ public class GridRenderer {
 		try {
 			String localhost = InetAddress.getLocalHost().getHostName();
 			// Relativize path for globus url
-			GlobusURL povray_src = new GlobusURL(FTP_PROTOCOL + "://" + localhost + HOME_DIR.relativize(POVRAY_FILE));
-			GlobusURL scherk_src = new GlobusURL(FTP_PROTOCOL + "://" + localhost + HOME_DIR.relativize(SCHERK_FILE));
+			GlobusURL povray_src = new GlobusURL(FTP_PROTOCOL + "://" + localhost + "/" + HOME_DIR.relativize(POVRAY_FILE));
+			GlobusURL scherk_src = new GlobusURL(FTP_PROTOCOL + "://" + localhost + "/" + HOME_DIR.relativize(SCHERK_FILE));
 			
 			UrlCopy u = new UrlCopy();
 			u.setCredentials(getDefaultCredential());
