@@ -21,6 +21,7 @@ public class GridRenderer {
 	
 	// Local dirs and files
 	private static Path CWD = Paths.get(System.getProperty("user.dir"));
+	private static Path HOME = Paths.get(System.getProperty("user.home"));
 	private static Path POVRAY_DIR = CWD.resolve(POVRAY);
 	private static Path GM_PATH = POVRAY_DIR.resolve(GM);
 	private static Path SCHERK_PATH = POVRAY_DIR.resolve(SCHERK);
@@ -41,24 +42,28 @@ public class GridRenderer {
 	public static void main(String[] args) {
 		try {
 			String localhost = InetAddress.getLocalHost().getHostName();
-			GlobusURL src = new GlobusURL(FTP_PROTOCOL + "://" + localhost + SCHERK_PATH);
+			// Relativize path for globus url
+			GlobusURL src = new GlobusURL(FTP_PROTOCOL + "://" + localhost + SCHERK_PATH.relativize(HOME));
 			
+			UrlCopy u = new UrlCopy();
+			u.setCredentials(getDefaultCredential());
+			u.setSourceUrl(src);
+
 			//TODO: proxy-init check
 			
 			for (String node : NODES) {
 				// Copy files to node
+				// It is not possible to copy directories with GlobusURL class, so just copy files individually
 				if(!localhost.equals(node)) {
-					GlobusURL dest = new GlobusURL(FTP_PROTOCOL + "://" + node + SCHERK_PATH);
-	
-					UrlCopy u = new UrlCopy();
-					u.setSourceUrl(src);
+					//TODO: threads?
+					GlobusURL dest = new GlobusURL(FTP_PROTOCOL + "://" + node + REMOTE_POVRAY);
+
 					u.setDestinationUrl(dest);
-	
-					u.setCredentials(getDefaultCredential());
-	
 					u.copy();
 				}
 			}
+			
+			//TODO: Delete remote files
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
