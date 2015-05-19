@@ -21,19 +21,21 @@ public class GridRenderer {
 	
 	// Local dirs and files
 	private static Path CWD = Paths.get(System.getProperty("user.dir"));
-	private static Path HOME = Paths.get(System.getProperty("user.home"));
+	private static Path HOME_DIR = Paths.get(System.getProperty("user.home"));
 	private static Path POVRAY_DIR = CWD.resolve(POVRAY);
-	private static Path GM_PATH = POVRAY_DIR.resolve(GM);
-	private static Path SCHERK_PATH = POVRAY_DIR.resolve(SCHERK);
+	private static Path POVRAY_FILE = POVRAY_DIR.resolve(POVRAY);
+	private static Path GM_FILE = POVRAY_DIR.resolve(GM);
+	private static Path SCHERK_FILE = POVRAY_DIR.resolve(SCHERK);
 	private static Path RESULT_DIR = CWD.resolve(RESULTS);
 	private static Path RESULT_FILE = RESULT_DIR.resolve("result.gif");	
 	
-	// Remote dirs
-	private static String REMOTE_DIR = "/tmp/homework_5";
-	private static String REMOTE_POVRAY = REMOTE_DIR + "/" + POVRAY;
-	private static String REMOTE_SCHERK = REMOTE_DIR + "/" + SCHERK;
-	private static String REMOTE_OUTPUT_DIR = REMOTE_DIR + "/" + RESULTS;
-	private static String REMOTE_OUTPUT = REMOTE_OUTPUT_DIR + "/" + "scherk.png";
+	// Remote dirs and files
+	private static Path REMOTE_DIR = Paths.get("/tmp/homework_5_2");
+	private static Path REMOTE_POVRAY_DIR = REMOTE_DIR.resolve(POVRAY);
+	private static Path REMOTE_POVRAY_FILE = REMOTE_POVRAY_DIR.resolve(POVRAY);
+	private static Path REMOTE_SCHERK_FILE = REMOTE_POVRAY_DIR.resolve(SCHERK);
+	private static Path REMOTE_OUTPUT_DIR = REMOTE_DIR.resolve(RESULTS);
+	private static Path REMOTE_OUTPUT_FILES = REMOTE_OUTPUT_DIR.resolve("scherk.png");
 	
 	// Nodes
 	private final static String[] NODES = new String[]{ "karwendel.dps.uibk.ac.at", "login.leo1.uibk.ac.at" };
@@ -43,27 +45,33 @@ public class GridRenderer {
 		try {
 			String localhost = InetAddress.getLocalHost().getHostName();
 			// Relativize path for globus url
-			GlobusURL src = new GlobusURL(FTP_PROTOCOL + "://" + localhost + SCHERK_PATH.relativize(HOME));
+			GlobusURL povray_src = new GlobusURL(FTP_PROTOCOL + "://" + localhost + HOME_DIR.relativize(POVRAY_FILE));
+			GlobusURL scherk_src = new GlobusURL(FTP_PROTOCOL + "://" + localhost + HOME_DIR.relativize(SCHERK_FILE));
 			
 			UrlCopy u = new UrlCopy();
 			u.setCredentials(getDefaultCredential());
-			u.setSourceUrl(src);
 
 			//TODO: proxy-init check
 			
 			for (String node : NODES) {
-				// Copy files to node
+				// Copy files to node (if not localhost)
 				// It is not possible to copy directories with GlobusURL class, so just copy files individually
 				if(!localhost.equals(node)) {
 					//TODO: threads?
-					GlobusURL dest = new GlobusURL(FTP_PROTOCOL + "://" + node + REMOTE_POVRAY);
-
-					u.setDestinationUrl(dest);
-					u.copy();
+					u.setSourceUrl(povray_src);
+					GlobusURL povray_dest = new GlobusURL(FTP_PROTOCOL + "://" + node + REMOTE_POVRAY_FILE);
+					u.setDestinationUrl(povray_dest);
+					u.copy();					
+					
+					u.setSourceUrl(scherk_src);
+					GlobusURL scherk_dest = new GlobusURL(FTP_PROTOCOL + "://" + node + REMOTE_SCHERK_FILE);
+					u.setDestinationUrl(scherk_dest);
+					u.copy();					
 				}
 			}
 			
 			//TODO: Delete remote files
+			//TODO: proxy destroy
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
