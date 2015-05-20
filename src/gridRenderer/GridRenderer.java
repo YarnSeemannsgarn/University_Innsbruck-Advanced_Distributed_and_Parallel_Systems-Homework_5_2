@@ -5,18 +5,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import org.globus.gram.GramException;
 import org.globus.gram.GramJob;
 import org.globus.gram.GramJobListener;
 import org.globus.io.urlcopy.UrlCopy;
-import org.globus.io.urlcopy.UrlCopyException;
 import org.globus.util.ConfigUtil;
 import org.globus.util.GlobusURL;
 import org.globus.util.deactivator.Deactivator;
 import org.gridforum.jgss.ExtendedGSSCredential;
 import org.gridforum.jgss.ExtendedGSSManager;
 import org.ietf.jgss.GSSCredential;
-import org.ietf.jgss.GSSException;
 
 
 public class GridRenderer {
@@ -144,7 +141,7 @@ public class GridRenderer {
 			String rsl;
 			if(!localhost) {
 				// Create remote directory
-				System.out.println("Copy files to node: " + node);
+				System.out.println("Copy files to node " + node);
 				rsl = "&(executable=/bin/mkdir)(arguments='-p' '" + REMOTE_DIR + "')";
 				submitAndWaitForJob(rsl, node);
 
@@ -167,19 +164,14 @@ public class GridRenderer {
 				rsl = "&(executable=/bin/chmod)(arguments='+x' '" + REMOTE_POVRAY_FILE + "' '" + REMOTE_POVRAY_RENDER_FILE + "')";
 				submitAndWaitForJob(rsl, node);
 
-				// Rsls (remote node)
+				// Render rsl (remote node)
 				renderRsl = "&(executable=" + REMOTE_POVRAY_RENDER_FILE + ")"
 						+ "(arguments='1' '" + frames + "' '" + subsetStartFrame + "' '" + subsetEndFrame + "')";
-				
-				String resultTarPath = REMOTE_DIR + "/results" + ctr + ".tar.gz";
-				tarRsl = "&(executable=/bin/tar)(arguments='-czPf' '" + resultTarPath + "' '" + REMOTE_DIR + "/*.png')";
 			}
 			else {
-				// Rsls (localhost)
+				// Render rsl (localhost)
 				renderRsl = "&(executable=" + HOME_DIR.relativize(POVRAY_RENDER_FILE) + ")"
 						+ "(arguments='1' '" + frames + "' '" + subsetStartFrame + "' '" + subsetEndFrame + "')";
-				String resultTarPath = HOME_DIR.relativize(POVRAY_DIR) + "/results" + ctr + ".tar.gz";
-				tarRsl = "&(executable=/bin/tar)(arguments='-czPf' '" + resultTarPath + "' '" + HOME_DIR.relativize(POVRAY_DIR) + "/*.png')";
 			}
 
 			// Render Files
@@ -190,15 +182,19 @@ public class GridRenderer {
 					System.out.println("Render job status on node " + node + ": " + job.getStatusAsString());
 				}
 			};
-			// TODO: remove listener
-			GramJobListener tarJobListener = new GramJobListener() {
-				@Override
-				public void statusChanged(GramJob job) {
-					System.out.println("Tar job status on node " + node + ": " + job.getStatusAsString());
-				}
-			};
 			submitAndWaitForJob(renderRsl, node, renderJobListener);
-			submitAndWaitForJob(tarRsl, node, tarJobListener);
+			
+			// Tar remote result files
+			if(!localhost) {
+				System.out.println("Tar result files on node " + node);
+	            String resultTarPath = REMOTE_DIR + "/results" + ctr + ".tar.gz";
+	            tarRsl = "&(executable=/bin/tar)(arguments='-c' '-z' '-f' '" + resultTarPath + "'";
+	            for(int j = this.subsetStartFrame; j < (this.subsetEndFrame+1); j++)
+	                tarRsl += " '" + REMOTE_DIR + "/scherk" + j + ".png'";
+	            tarRsl += ")";
+	
+				submitAndWaitForJob(tarRsl, node);
+			}
 		}		
 	}
 
