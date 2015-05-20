@@ -65,6 +65,7 @@ public class GridRenderer {
 	private static final String[] NODES = new String[]{ "karwendel.dps.uibk.ac.at", "login.leo1.uibk.ac.at" };
 	private static String localhost;
 	private static final String FTP_PROTOCOL = "gsiftp";
+	private static final String JOBMANAGER = "jobmanager-sge";
 	private static GSSCredential cred = getDefaultCredential();;
 	private static GlobusURL povraySrc;
 	private static GlobusURL povrayRenderSrc;
@@ -247,7 +248,7 @@ public class GridRenderer {
 					System.out.println("Render job status on node " + node + ": " + job.getStatusAsString());
 				}
 			};
-			submitAndWaitForJob(renderRsl, node, renderJobListener);
+			submitAndWaitForJob(renderRsl, node + "/" + JOBMANAGER, renderJobListener); // Jobmanager for intensive task
 
 			// Tar remote result files and get results
 			if(isRemoteNode) {
