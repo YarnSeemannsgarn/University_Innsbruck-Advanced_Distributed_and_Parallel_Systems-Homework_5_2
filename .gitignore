@@ -5,3 +5,6 @@ bin/
 
 #Ant
 build/
+
+#Other
+result.gif
