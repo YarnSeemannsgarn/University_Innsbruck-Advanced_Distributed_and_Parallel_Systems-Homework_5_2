@@ -19,8 +19,7 @@ import org.ietf.jgss.GSSCredential;
 public class GridRenderer {
 	// Args
 	public static final int PARAMETERS = 1;
-	public static final String INVALID_SYNTAX = "Invalid number of parameters. Syntax is: "
-			+ "frames";	
+	public static final String INVALID_SYNTAX = "Invalid number of parameters. Syntax is: frames";	
 
 	// Povray
 	private static final String POVRAY = "povray";
@@ -46,6 +45,7 @@ public class GridRenderer {
 
 	// JGlobus
 	private static final String[] NODES = new String[]{ "karwendel.dps.uibk.ac.at", "login.leo1.uibk.ac.at" };
+	private static String localhost;
 	private static final String FTP_PROTOCOL = "gsiftp";
 	private static GSSCredential cred = getDefaultCredential();;
 	private static GlobusURL povraySrc;
@@ -59,7 +59,6 @@ public class GridRenderer {
 		int frames = Integer.parseInt(args[0]);
 
 		// Initialize JGlobus stuff
-		String localhost = null;
 		try{
 			localhost = InetAddress.getLocalHost().getHostName();
 
@@ -123,15 +122,15 @@ public class GridRenderer {
 		private int subsetStartFrame;
 		private int subsetEndFrame;
 		private int frames;
-		private boolean localhost;
+		private boolean isRemoteNode;
 		private int ctr;
 
-		public RenderFilesOnNode(String node, int subsetStartFrame, int subsetEndFrame, int frames, boolean localhost, int ctr) {
+		public RenderFilesOnNode(String node, int subsetStartFrame, int subsetEndFrame, int frames, boolean isRemoteNode, int ctr) {
 			this.node = node;
 			this.subsetStartFrame = subsetStartFrame;
 			this.subsetEndFrame = subsetEndFrame;
 			this.frames = frames;
-			this.localhost = localhost;
+			this.isRemoteNode = isRemoteNode;
 			this.ctr = ctr;
 		}
 
@@ -139,7 +138,7 @@ public class GridRenderer {
 			String renderRsl;
 			String tarRsl;
 			String rsl;
-			if(!localhost) {
+			if(isRemoteNode) {
 				// Create remote directory
 				System.out.println("Copy files to node " + node);
 				rsl = "&(executable=/bin/mkdir)(arguments='-p' '" + REMOTE_DIR + "')";
@@ -185,7 +184,7 @@ public class GridRenderer {
 			submitAndWaitForJob(renderRsl, node, renderJobListener);
 
 			// Tar remote result files and get results
-			if(!localhost) {
+			if(isRemoteNode) {
 				System.out.println("Tar result files on node " + node);
 				String tarName = "results" + ctr + ".tar.gz";
 				String resultTarPath = REMOTE_DIR + "/" + tarName;
@@ -199,7 +198,7 @@ public class GridRenderer {
 				System.out.println("Collect Tar result file from node " + node);
 				try{
 					GlobusURL tarSrc = new GlobusURL(FTP_PROTOCOL + "://" + node + "/" + resultTarPath);
-					GlobusURL tarDest = new GlobusURL(FTP_PROTOCOL + "://" + node + "/" + HOME_DIR.relativize(POVRAY_DIR) + "/" + tarName);
+					GlobusURL tarDest = new GlobusURL(FTP_PROTOCOL + "://" + localhost + "/" + HOME_DIR.relativize(POVRAY_DIR) + "/" + tarName);
 					urlCopy(tarSrc, tarDest);
 				} catch (Exception e) {
 					e.printStackTrace();
