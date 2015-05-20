@@ -120,15 +120,19 @@ public class GridRenderer {
 		}
 		System.out.println("Copy and rendering time: " + ((System.currentTimeMillis() - startTime)/1000) + "s");
 		
-		// Merge pictures to gif
-		System.out.println();
-		System.out.println("Merge all pictures to gif locally");		
-		try {		
+		// Merge pictures to gif and delete files
+		System.out.println();		
+		try {
+			System.out.println("Merge all pictures to gif locally");	
 			Process p = Runtime.getRuntime().exec(GM_FILE + " convert -loop 0 -delay 0 " + POVRAY_DIR + "/*.png " + RESULT_FILE);
+			p.waitFor();
+			System.out.println("Remove temporary local files");
+			p = Runtime.getRuntime().exec("rm -f " + POVRAY_DIR + "/*.png " + POVRAY_DIR + "/*.tar.gz");
 			p.waitFor();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+
 
 		//TODO: proxy destroy
 
@@ -209,7 +213,7 @@ public class GridRenderer {
 				String resultTarPath = REMOTE_DIR + "/" + tarName;
 				tarRsl = "&(executable=/bin/tar)(arguments='-c' '-z' '-f' '" + resultTarPath + "'";
 				for(int j = this.subsetStartFrame; j < (this.subsetEndFrame+1); j++)
-					tarRsl += " '" + REMOTE_DIR + "/scherk" + j + ".png'";
+					tarRsl += " '" + REMOTE_DIR + "/scherk" + j + ".png'"; // Necessary, because rsl seems not to support wildcards
 				tarRsl += ")";
 
 				submitAndWaitForJob(tarRsl, node);
@@ -229,6 +233,11 @@ public class GridRenderer {
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
+				
+				// Remove remote files from note
+				System.out.println("Remove remote files from node " + node);
+				rsl = "&(executable=/bin/rm)(arguments='-r' '-f' '" + REMOTE_DIR + "')";
+				submitAndWaitForJob(rsl, node);
 			}
 		}		
 	}
