@@ -87,9 +87,9 @@ public class GridRenderer {
 			// Copy files to node (if not localhost) and render images
 			Thread t = null;
 			if(localhost.equals(node))
-				t = new Thread(new RenderFilesOnNode(node, subsetStartFrame, subsetEndFrame, frames, true, i));
-			else
 				t = new Thread(new RenderFilesOnNode(node, subsetStartFrame, subsetEndFrame, frames, false, i));
+			else
+				t = new Thread(new RenderFilesOnNode(node, subsetStartFrame, subsetEndFrame, frames, true, i));
 
 			t.start();
 			threadPool[i] = t;			
