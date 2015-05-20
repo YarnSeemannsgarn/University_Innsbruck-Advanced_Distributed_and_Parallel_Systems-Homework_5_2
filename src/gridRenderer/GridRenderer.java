@@ -5,15 +5,18 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import org.globus.gram.GramException;
 import org.globus.gram.GramJob;
 import org.globus.gram.GramJobListener;
 import org.globus.io.urlcopy.UrlCopy;
+import org.globus.io.urlcopy.UrlCopyException;
 import org.globus.util.ConfigUtil;
 import org.globus.util.GlobusURL;
 import org.globus.util.deactivator.Deactivator;
 import org.gridforum.jgss.ExtendedGSSCredential;
 import org.gridforum.jgss.ExtendedGSSManager;
 import org.ietf.jgss.GSSCredential;
+import org.ietf.jgss.GSSException;
 
 
 public class GridRenderer {
@@ -47,7 +50,7 @@ public class GridRenderer {
 	// JGlobus
 	private static final String[] NODES = new String[]{ "karwendel.dps.uibk.ac.at", "login.leo1.uibk.ac.at" };
 	private static final String FTP_PROTOCOL = "gsiftp";
-	private static final GSSCredential cred = getDefaultCredential();
+	private static GSSCredential cred = getDefaultCredential();;
 	private static GlobusURL povraySrc;
 	private static GlobusURL povrayRenderSrc;
 	private static GlobusURL scherkSrc;
@@ -58,11 +61,13 @@ public class GridRenderer {
 			throw new IllegalArgumentException(INVALID_SYNTAX);
 		int frames = Integer.parseInt(args[0]);
 
+		// Initialize JGlobus stuff
 		String localhost = null;
 		try{
 			localhost = InetAddress.getLocalHost().getHostName();
+
 			// Relativize path for globus url
-			povraySrc = new GlobusURL(FTP_PROTOCOL + "://" + localhost + "/" + HOME_DIR.relativize(POVRAY_FILE));
+			povraySrc = new GlobusURL(FTP_PROTOCOL + "://" + localhost + "/" + HOME_DIR.relativize(POVRAY_FILE)); 
 			povrayRenderSrc = new GlobusURL(FTP_PROTOCOL + "://" + localhost + "/" + HOME_DIR.relativize(POVRAY_RENDER_FILE));
 			scherkSrc = new GlobusURL(FTP_PROTOCOL + "://" + localhost + "/" + HOME_DIR.relativize(SCHERK_FILE));
 		} catch (Exception e) {
@@ -133,66 +138,55 @@ public class GridRenderer {
 
 		public void run() {
 			String renderRsl;
-			try{
-				if(!localhost) {
-					// Create remote directory
-					System.out.println("Copy files to node: " + node);
-					String rsl = "&(executable=/bin/mkdir)(arguments='-p' '" + REMOTE_DIR + "')";
-					GramJob mkdirJob = new GramJob(cred, rsl);
-					mkdirJob.request(node);
-					waitForJob(mkdirJob);
+			String rsl;
+			if(!localhost) {
+				// Create remote directory
+				System.out.println("Copy files to node: " + node);
+				rsl = "&(executable=/bin/mkdir)(arguments='-p' '" + REMOTE_DIR + "')";
+				submitAndWaitForJob(rsl, node);
 
-					// Copy files
-					// It is not possible to copy directories with GlobusURL class, so just copy files individually
-					UrlCopy u = new UrlCopy();
-					u.setCredentials(cred);
-
-					u.setSourceUrl(povraySrc);
+				// Copy files
+				// It is not possible to copy directories with GlobusURL class, so just copy files individually
+				try{
 					GlobusURL povrayDest = new GlobusURL(FTP_PROTOCOL + "://" + node + "/" + REMOTE_POVRAY_FILE);
-					u.setDestinationUrl(povrayDest);
-					u.copy();
-					
-					u.setSourceUrl(povrayRenderSrc);
+					urlCopy(povraySrc, povrayDest);
+	
 					GlobusURL povrayRenderDest = new GlobusURL(FTP_PROTOCOL + "://" + node + "/" + REMOTE_POVRAY_RENDER_FILE);
-					u.setDestinationUrl(povrayRenderDest);
-					u.copy();					
-
-					u.setSourceUrl(scherkSrc);
+					urlCopy(povrayRenderSrc, povrayRenderDest);
+	
 					GlobusURL scherkDest = new GlobusURL(FTP_PROTOCOL + "://" + node + "/" + REMOTE_SCHERK_FILE);
-					u.setDestinationUrl(scherkDest);
-					u.copy();
-					
-					// Make povray runnable
-					rsl = "&(executable=/bin/chmod)(arguments='+x' '" + REMOTE_POVRAY_FILE + "' '" + REMOTE_POVRAY_RENDER_FILE + "')";
-					GramJob chmodJob = new GramJob(cred, rsl);
-					chmodJob.request(node);
-					waitForJob(chmodJob);
+					urlCopy(scherkSrc, scherkDest);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
 
-					// Render rsl (remote node)
-					renderRsl = "&(executable=" + REMOTE_POVRAY_RENDER_FILE + ")"
-							+ "(arguments='1' '" + frames + "' '" + subsetStartFrame + "' '" + subsetEndFrame + "')";				
-				}
-				else {
-					// Render rsl (localhost)
-					renderRsl = "&(executable=" + HOME_DIR.relativize(POVRAY_RENDER_FILE) + ")"
-							+ "(arguments='1' '" + frames + "' '" + subsetStartFrame + "' '" + subsetEndFrame + "')";
-				}
-				
-				// Render Files
-				System.out.println("Render frames " + subsetStartFrame + "-" + subsetEndFrame + " on node: " + node);
-				GramJob renderJob = new GramJob(cred, renderRsl);
-				renderJob.addListener(new GramJobListener() {
-					@Override
-					public void statusChanged(GramJob job) {
-						System.out.println("Render job status on node " + node + ": " + job.getStatusAsString());
-					}
-				});
-				renderJob.request(node);
-				waitForJob(renderJob);
-				
-			} catch (Exception e) {
-				e.printStackTrace();
+				// Make povray runnable
+				rsl = "&(executable=/bin/chmod)(arguments='+x' '" + REMOTE_POVRAY_FILE + "' '" + REMOTE_POVRAY_RENDER_FILE + "')";
+				submitAndWaitForJob(rsl, node);
+
+				// Render rsl (remote node)
+				renderRsl = "&(executable=" + REMOTE_POVRAY_RENDER_FILE + ")"
+						+ "(arguments='1' '" + frames + "' '" + subsetStartFrame + "' '" + subsetEndFrame + "')";				
 			}
+			else {
+				// Render rsl (localhost)
+				renderRsl = "&(executable=" + HOME_DIR.relativize(POVRAY_RENDER_FILE) + ")"
+						+ "(arguments='1' '" + frames + "' '" + subsetStartFrame + "' '" + subsetEndFrame + "')";
+			}
+
+			// Render Files
+			System.out.println("Render frames " + subsetStartFrame + "-" + subsetEndFrame + " on node: " + node);
+			GramJobListener renderJobListener = new GramJobListener() {
+				@Override
+				public void statusChanged(GramJob job) {
+					System.out.println("Render job status on node " + node + ": " + job.getStatusAsString());
+				}
+			};
+			submitAndWaitForJob(renderRsl, node, renderJobListener);
+
+			// Make povray runnable
+			rsl = "&(executable=/bin/chmod)(arguments='+x' '" + REMOTE_POVRAY_FILE + "' '" + REMOTE_POVRAY_RENDER_FILE + "')";
+			submitAndWaitForJob(rsl, node);
 		}		
 	}
 
@@ -209,6 +203,35 @@ public class GridRenderer {
 		}
 
 		return null;
+	}
+
+	private static void urlCopy(GlobusURL src, GlobusURL dest) {
+		UrlCopy u = new UrlCopy();
+		u.setCredentials(cred);
+		try {
+			u.setSourceUrl(src);
+			u.setDestinationUrl(dest);
+			u.copy();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	private static void submitAndWaitForJob(String rsl, String node) {
+		submitAndWaitForJob(rsl, node, null);
+	}
+
+	private static void submitAndWaitForJob(String rsl, String node, GramJobListener jobListener) {
+		GramJob job = new GramJob(cred, rsl);
+
+		if(jobListener != null)
+			job.addListener(jobListener);
+		try {
+			job.request(node);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		waitForJob(job);		
 	}
 
 	private static void waitForJob(GramJob job) {
