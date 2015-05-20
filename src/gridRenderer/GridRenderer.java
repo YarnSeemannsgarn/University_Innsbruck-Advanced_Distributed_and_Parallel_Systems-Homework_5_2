@@ -124,8 +124,9 @@ public class GridRenderer {
 		System.out.println();
 		System.out.println("Merge all pictures to gif locally");		
 		try {		
-			Runtime.getRuntime().exec(GM_FILE + " convert -loop 0 -delay 0 " + POVRAY_DIR + "/*.png " + RESULT_FILE);
-		} catch (IOException e) {
+			Process p = Runtime.getRuntime().exec(GM_FILE + " convert -loop 0 -delay 0 " + POVRAY_DIR + "/*.png " + RESULT_FILE);
+			p.waitFor();
+		} catch (Exception e) {
 			e.printStackTrace();
 		}
 
