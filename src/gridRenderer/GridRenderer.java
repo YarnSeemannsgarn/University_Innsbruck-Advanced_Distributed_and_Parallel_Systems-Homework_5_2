@@ -118,12 +118,18 @@ public class GridRenderer {
 				e.printStackTrace();
 			}
 		}
-
 		System.out.println("Copy and rendering time: " + ((System.currentTimeMillis() - startTime)/1000) + "s");
+		
+		// Merge pictures to gif
+		System.out.println();
+		System.out.println("Merge all pictures to gif locally");		
+		try {		
+			Runtime.getRuntime().exec(POVRAY_DIR + "/" + GM + " convert -loop 0 -delay 0 " + POVRAY_DIR + "/*.png " + RESULT_FILE);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 
-		//TODO: Delete remote files
 		//TODO: proxy destroy
-
 
 		// Deactivate jobs (otherwise screen stucks)
 		Deactivator.deactivateAll();
