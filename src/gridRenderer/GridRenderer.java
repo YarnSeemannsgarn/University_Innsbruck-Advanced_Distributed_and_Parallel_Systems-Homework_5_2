@@ -24,7 +24,7 @@ public class GridRenderer {
 
 	// Povray
 	private static final String POVRAY = "povray";
-	private static final String POVRAY_RENDER = "povray";
+	private static final String POVRAY_RENDER = "povray_render.sh";
 	private static final String GM = "gm";
 	private static final String SCHERK = "scherk.pov";
 
@@ -86,9 +86,9 @@ public class GridRenderer {
 			// Copy files to node (if not localhost) and render images
 			Thread t = null;
 			if(localhost.equals(node))
-				t = new Thread(new RenderFilesOnNode(node, subsetStartFrame, subsetEndFrame, frames, i, true));
+				t = new Thread(new RenderFilesOnNode(node, subsetStartFrame, subsetEndFrame, frames, true));
 			else
-				t = new Thread(new RenderFilesOnNode(node, subsetStartFrame, subsetEndFrame, frames, i, false));
+				t = new Thread(new RenderFilesOnNode(node, subsetStartFrame, subsetEndFrame, frames, false));
 
 			t.start();
 			threadPool[i] = t;			
@@ -112,7 +112,7 @@ public class GridRenderer {
 		//TODO: proxy destroy
 
 
-		// Deactivate jobs
+		// Deactivate jobs (otherwise screen stucks)
 		Deactivator.deactivateAll();
 	}
 
@@ -121,29 +121,27 @@ public class GridRenderer {
 		private int subsetStartFrame;
 		private int subsetEndFrame;
 		private int frames;
-		private int i;
 		private boolean localhost;
 
-		public RenderFilesOnNode(String node, int subsetStartFrame, int subsetEndFrame, int frames, int i, boolean localhost) {
+		public RenderFilesOnNode(String node, int subsetStartFrame, int subsetEndFrame, int frames, boolean localhost) {
 			this.node = node;
 			this.subsetStartFrame = subsetStartFrame;
 			this.subsetEndFrame = subsetEndFrame;
 			this.frames = frames;
-			this.i = i;
 			this.localhost = localhost;
 		}
 
 		public void run() {
 			try{
-				System.out.println("Render frames " + subsetStartFrame + "-" + subsetEndFrame + " on node: " + node);
 				if(!localhost) {
+					// Create remote directory
 					System.out.println("Copy files to node: " + node);
-					// Create povray directory
 					String rsl = "&(executable=/bin/mkdir)(arguments='-p' '" + REMOTE_DIR + "')";
 					GramJob mkdirJob = new GramJob(cred, rsl);
 					mkdirJob.request(node);
 					waitForJob(mkdirJob);
 
+					// Copy files
 					// It is not possible to copy directories with GlobusURL class, so just copy files individually
 					UrlCopy u = new UrlCopy();
 					u.setCredentials(cred);
@@ -170,6 +168,7 @@ public class GridRenderer {
 					waitForJob(chmodJob);
 
 					// Render Files
+					System.out.println("Render frames " + subsetStartFrame + "-" + subsetEndFrame + " on node: " + node);
 					rsl = "&(executable=" + REMOTE_POVRAY_FILE + "_render.sh" + ")"
 							+ "(arguments='1' '" + frames + "' '" + subsetStartFrame + "' '" + subsetEndFrame + "')";
 					GramJob renderJob = new GramJob(cred, rsl);
@@ -180,7 +179,7 @@ public class GridRenderer {
 						}
 					});
 					renderJob.request(node);
-					waitForJob(renderJob);					
+					waitForJob(renderJob);				
 				}
 				else {
 					//TODO
