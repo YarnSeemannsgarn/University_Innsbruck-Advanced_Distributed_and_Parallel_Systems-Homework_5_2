@@ -91,9 +91,9 @@ public class GridRenderer {
 			// Copy files to node (if not localhost) and render images
 			Thread t = null;
 			if(localhost.equals(node))
-				t = new Thread(new RenderFilesOnNode(node, subsetStartFrame, subsetEndFrame, frames, true));
+				t = new Thread(new RenderFilesOnNode(node, subsetStartFrame, subsetEndFrame, frames, true, i));
 			else
-				t = new Thread(new RenderFilesOnNode(node, subsetStartFrame, subsetEndFrame, frames, false));
+				t = new Thread(new RenderFilesOnNode(node, subsetStartFrame, subsetEndFrame, frames, false, i));
 
 			t.start();
 			threadPool[i] = t;			
@@ -127,17 +127,20 @@ public class GridRenderer {
 		private int subsetEndFrame;
 		private int frames;
 		private boolean localhost;
+		private int ctr;
 
-		public RenderFilesOnNode(String node, int subsetStartFrame, int subsetEndFrame, int frames, boolean localhost) {
+		public RenderFilesOnNode(String node, int subsetStartFrame, int subsetEndFrame, int frames, boolean localhost, int ctr) {
 			this.node = node;
 			this.subsetStartFrame = subsetStartFrame;
 			this.subsetEndFrame = subsetEndFrame;
 			this.frames = frames;
 			this.localhost = localhost;
+			this.ctr = ctr;
 		}
 
 		public void run() {
 			String renderRsl;
+			String tarRsl;
 			String rsl;
 			if(!localhost) {
 				// Create remote directory
@@ -164,14 +167,19 @@ public class GridRenderer {
 				rsl = "&(executable=/bin/chmod)(arguments='+x' '" + REMOTE_POVRAY_FILE + "' '" + REMOTE_POVRAY_RENDER_FILE + "')";
 				submitAndWaitForJob(rsl, node);
 
-				// Render rsl (remote node)
+				// Rsls (remote node)
 				renderRsl = "&(executable=" + REMOTE_POVRAY_RENDER_FILE + ")"
-						+ "(arguments='1' '" + frames + "' '" + subsetStartFrame + "' '" + subsetEndFrame + "')";				
+						+ "(arguments='1' '" + frames + "' '" + subsetStartFrame + "' '" + subsetEndFrame + "')";
+				
+				String resultTarPath = REMOTE_DIR + "/results" + ctr + ".tar.gz";
+				tarRsl = "&(executable=/bin/tar)(arguments='-czPf' '" + resultTarPath + "' '" + REMOTE_DIR + "/*.png')";
 			}
 			else {
-				// Render rsl (localhost)
+				// Rsls (localhost)
 				renderRsl = "&(executable=" + HOME_DIR.relativize(POVRAY_RENDER_FILE) + ")"
 						+ "(arguments='1' '" + frames + "' '" + subsetStartFrame + "' '" + subsetEndFrame + "')";
+				String resultTarPath = HOME_DIR.relativize(POVRAY_DIR) + "/results" + ctr + ".tar.gz";
+				tarRsl = "&(executable=/bin/tar)(arguments='-czPf' '" + resultTarPath + "' '" + HOME_DIR.relativize(POVRAY_DIR) + "/*.png')";
 			}
 
 			// Render Files
@@ -182,11 +190,15 @@ public class GridRenderer {
 					System.out.println("Render job status on node " + node + ": " + job.getStatusAsString());
 				}
 			};
+			// TODO: remove listener
+			GramJobListener tarJobListener = new GramJobListener() {
+				@Override
+				public void statusChanged(GramJob job) {
+					System.out.println("Tar job status on node " + node + ": " + job.getStatusAsString());
+				}
+			};
 			submitAndWaitForJob(renderRsl, node, renderJobListener);
-
-			// Make povray runnable
-			rsl = "&(executable=/bin/chmod)(arguments='+x' '" + REMOTE_POVRAY_FILE + "' '" + REMOTE_POVRAY_RENDER_FILE + "')";
-			submitAndWaitForJob(rsl, node);
+			submitAndWaitForJob(tarRsl, node, tarJobListener);
 		}		
 	}
 
