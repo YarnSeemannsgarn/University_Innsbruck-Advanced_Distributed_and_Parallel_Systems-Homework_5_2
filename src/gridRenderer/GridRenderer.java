@@ -132,6 +132,7 @@ public class GridRenderer {
 		}
 
 		public void run() {
+			String renderRsl;
 			try{
 				if(!localhost) {
 					// Create remote directory
@@ -167,23 +168,28 @@ public class GridRenderer {
 					chmodJob.request(node);
 					waitForJob(chmodJob);
 
-					// Render Files
-					System.out.println("Render frames " + subsetStartFrame + "-" + subsetEndFrame + " on node: " + node);
-					rsl = "&(executable=" + REMOTE_POVRAY_FILE + "_render.sh" + ")"
-							+ "(arguments='1' '" + frames + "' '" + subsetStartFrame + "' '" + subsetEndFrame + "')";
-					GramJob renderJob = new GramJob(cred, rsl);
-					renderJob.addListener(new GramJobListener() {
-						@Override
-						public void statusChanged(GramJob job) {
-							System.out.println("Render job status on node " + node + ": " + job.getStatusAsString());
-						}
-					});
-					renderJob.request(node);
-					waitForJob(renderJob);				
+					// Render rsl (remote node)
+					renderRsl = "&(executable=" + REMOTE_POVRAY_RENDER_FILE + ")"
+							+ "(arguments='1' '" + frames + "' '" + subsetStartFrame + "' '" + subsetEndFrame + "')";				
 				}
 				else {
-					//TODO
+					// Render rsl (localhost)
+					renderRsl = "&(executable=" + HOME_DIR.relativize(POVRAY_RENDER_FILE) + ")"
+							+ "(arguments='1' '" + frames + "' '" + subsetStartFrame + "' '" + subsetEndFrame + "')";
 				}
+				
+				// Render Files
+				System.out.println("Render frames " + subsetStartFrame + "-" + subsetEndFrame + " on node: " + node);
+				GramJob renderJob = new GramJob(cred, renderRsl);
+				renderJob.addListener(new GramJobListener() {
+					@Override
+					public void statusChanged(GramJob job) {
+						System.out.println("Render job status on node " + node + ": " + job.getStatusAsString());
+					}
+				});
+				renderJob.request(node);
+				waitForJob(renderJob);
+				
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
