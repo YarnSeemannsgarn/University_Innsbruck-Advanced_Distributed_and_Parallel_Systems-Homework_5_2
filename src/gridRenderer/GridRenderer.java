@@ -150,10 +150,10 @@ public class GridRenderer {
 				try{
 					GlobusURL povrayDest = new GlobusURL(FTP_PROTOCOL + "://" + node + "/" + REMOTE_POVRAY_FILE);
 					urlCopy(povraySrc, povrayDest);
-	
+
 					GlobusURL povrayRenderDest = new GlobusURL(FTP_PROTOCOL + "://" + node + "/" + REMOTE_POVRAY_RENDER_FILE);
 					urlCopy(povrayRenderSrc, povrayRenderDest);
-	
+
 					GlobusURL scherkDest = new GlobusURL(FTP_PROTOCOL + "://" + node + "/" + REMOTE_SCHERK_FILE);
 					urlCopy(scherkSrc, scherkDest);
 				} catch (Exception e) {
@@ -183,17 +183,27 @@ public class GridRenderer {
 				}
 			};
 			submitAndWaitForJob(renderRsl, node, renderJobListener);
-			
-			// Tar remote result files
+
+			// Tar remote result files and get results
 			if(!localhost) {
 				System.out.println("Tar result files on node " + node);
-	            String resultTarPath = REMOTE_DIR + "/results" + ctr + ".tar.gz";
-	            tarRsl = "&(executable=/bin/tar)(arguments='-c' '-z' '-f' '" + resultTarPath + "'";
-	            for(int j = this.subsetStartFrame; j < (this.subsetEndFrame+1); j++)
-	                tarRsl += " '" + REMOTE_DIR + "/scherk" + j + ".png'";
-	            tarRsl += ")";
-	
+				String tarName = "results" + ctr + ".tar.gz";
+				String resultTarPath = REMOTE_DIR + "/" + tarName;
+				tarRsl = "&(executable=/bin/tar)(arguments='-c' '-z' '-f' '" + resultTarPath + "'";
+				for(int j = this.subsetStartFrame; j < (this.subsetEndFrame+1); j++)
+					tarRsl += " '" + REMOTE_DIR + "/scherk" + j + ".png'";
+				tarRsl += ")";
+
 				submitAndWaitForJob(tarRsl, node);
+
+				System.out.println("Collect Tar result file from node " + node);
+				try{
+					GlobusURL tarSrc = new GlobusURL(FTP_PROTOCOL + "://" + node + "/" + resultTarPath);
+					GlobusURL tarDest = new GlobusURL(FTP_PROTOCOL + "://" + node + "/" + HOME_DIR.relativize(POVRAY_DIR) + "/" + tarName);
+					urlCopy(tarSrc, tarDest);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
 			}
 		}		
 	}
