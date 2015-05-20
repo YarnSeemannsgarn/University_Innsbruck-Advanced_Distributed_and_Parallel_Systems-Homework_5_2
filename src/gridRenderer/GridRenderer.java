@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetAddress;
@@ -126,9 +127,20 @@ public class GridRenderer {
 			System.out.println("Merge all pictures to gif locally");	
 			Process p = Runtime.getRuntime().exec(GM_FILE + " convert -loop 0 -delay 0 " + POVRAY_DIR + "/*.png " + RESULT_FILE);
 			p.waitFor();
-			System.out.println("Remove temporary local files");
-			p = Runtime.getRuntime().exec("rm -f " + POVRAY_DIR + "/*.png " + POVRAY_DIR + "/*.tar.gz");
-			p.waitFor();
+
+			final File folder = new File(POVRAY_DIR.toString());
+			final File[] files = folder.listFiles( new FilenameFilter() {
+			    @Override
+			    public boolean accept( final File dir,
+			                           final String name ) {
+			        return name.matches( "*.png|*.tar.gz" );
+			    }
+			} );
+			for ( final File file : files ) {
+			    if ( !file.delete() ) {
+			        System.err.println( "Can't remove " + file.getAbsolutePath() );
+			    }
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
