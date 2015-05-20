@@ -28,10 +28,15 @@ import org.gridforum.jgss.ExtendedGSSCredential;
 import org.gridforum.jgss.ExtendedGSSManager;
 import org.ietf.jgss.GSSCredential;
 
-
+/*
+ * Renders given frames on globus NODES and merges the frames
+ * Simple procedural implementation
+ * Uses https://github.com/jglobus/JGlobus
+ */
 public class GridRenderer {
 	// Args
 	public static final int PARAMETERS = 1;
+	private static int frames;
 	public static final String INVALID_SYNTAX = "Invalid number of parameters. Syntax is: frames";	
 
 	// Povray
@@ -65,13 +70,29 @@ public class GridRenderer {
 	private static GlobusURL povrayRenderSrc;
 	private static GlobusURL scherkSrc;
 
+	/*
+	 * main
+	 */
 	public static void main(String[] args) {
 		// Check parameters
 		if (args.length < PARAMETERS)
 			throw new IllegalArgumentException(INVALID_SYNTAX);
-		int frames = Integer.parseInt(args[0]);
+		frames = Integer.parseInt(args[0]);
 
-		// Initialize JGlobus stuff
+		initializeJGlobusVars();
+		renderFrames();
+		mergeFramesLocally();
+		deleteTemporaryLocalFiles();
+		//TODO: proxy-init check
+
+		// Deactivate jobs (otherwise screen stucks)
+		Deactivator.deactivateAll();
+	}
+	
+	/*
+	 * Initialize GlobusUrls
+	 */
+	private static void initializeJGlobusVars() {
 		try{
 			localhost = InetAddress.getLocalHost().getHostName();
 
@@ -81,9 +102,13 @@ public class GridRenderer {
 			scherkSrc = new GlobusURL(FTP_PROTOCOL + "://" + localhost + "/" + HOME_DIR.relativize(SCHERK_FILE));
 		} catch (Exception e) {
 			e.printStackTrace();
-		}
+		}		
+	}
 
-		//TODO: proxy-init check
+	/*
+	 * Render frames by using one thread for each node
+	 */
+	private static void renderFrames() {
 		int subsetStartFrame = 1;
 		int subsetEndFrame = -1;
 		int subsetPerProcessor = (int) ((double) frames / (double) NODES.length); // Round down
@@ -100,9 +125,9 @@ public class GridRenderer {
 			// Copy files to node (if not localhost) and render images
 			Thread t = null;
 			if(localhost.equals(node))
-				t = new Thread(new RenderFilesOnNode(node, subsetStartFrame, subsetEndFrame, frames, false, i));
+				t = new Thread(new RenderFramesOnNode(node, subsetStartFrame, subsetEndFrame, frames, false, i));
 			else
-				t = new Thread(new RenderFilesOnNode(node, subsetStartFrame, subsetEndFrame, frames, true, i));
+				t = new Thread(new RenderFramesOnNode(node, subsetStartFrame, subsetEndFrame, frames, true, i));
 
 			t.start();
 			threadPool[i] = t;			
@@ -120,39 +145,45 @@ public class GridRenderer {
 			}
 		}
 		System.out.println("Copy and rendering time: " + ((System.currentTimeMillis() - startTime)/1000) + "s");
-		
-		// Merge pictures to gif and delete files
-		System.out.println();		
+		System.out.println();
+	}
+	
+	/*
+	 * Merge frames locally with the gm script
+	 */
+	private static void mergeFramesLocally() {
 		try {
 			System.out.println("Merge all pictures to gif locally");	
 			Process p = Runtime.getRuntime().exec(GM_FILE + " convert -loop 0 -delay 0 " + POVRAY_DIR + "/*.png " + RESULT_FILE);
 			p.waitFor();
-
-			final File folder = new File(POVRAY_DIR.toString());
-			final File[] files = folder.listFiles( new FilenameFilter() {
-			    @Override
-			    public boolean accept( final File dir,
-			                           final String name ) {
-			        return name.matches( "(.*\\.png)|(.*\\.tar\\.gz)" );
-			    }
-			} );
-			for ( final File file : files ) {
-			    if ( !file.delete() ) {
-			        System.err.println( "Can't remove " + file.getAbsolutePath() );
-			    }
-			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-
-
-		//TODO: proxy destroy
-
-		// Deactivate jobs (otherwise screen stucks)
-		Deactivator.deactivateAll();
+	}
+	
+	/*
+	 * Delete temporary local files using Java regex 
+	 */
+	private static void deleteTemporaryLocalFiles() {
+		final File folder = new File(POVRAY_DIR.toString());
+		final File[] files = folder.listFiles( new FilenameFilter() {
+		    @Override
+		    public boolean accept( final File dir,
+		                           final String name ) {
+		        return name.matches( "(.*\\.png)|(.*\\.tar\\.gz)" );
+		    }
+		} );
+		for ( final File file : files ) {
+		    if ( !file.delete() ) {
+		        System.err.println( "Can't remove " + file.getAbsolutePath() );
+		    }
+		}
 	}
 
-	private static class RenderFilesOnNode implements Runnable{
+	/*
+	 * One thread / per node to enable parallism
+	 */
+	private static class RenderFramesOnNode implements Runnable{
 		private String node;
 		private int subsetStartFrame;
 		private int subsetEndFrame;
@@ -160,7 +191,7 @@ public class GridRenderer {
 		private boolean isRemoteNode;
 		private int ctr;
 
-		public RenderFilesOnNode(String node, int subsetStartFrame, int subsetEndFrame, int frames, boolean isRemoteNode, int ctr) {
+		public RenderFramesOnNode(String node, int subsetStartFrame, int subsetEndFrame, int frames, boolean isRemoteNode, int ctr) {
 			this.node = node;
 			this.subsetStartFrame = subsetStartFrame;
 			this.subsetEndFrame = subsetEndFrame;
