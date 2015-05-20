@@ -1,10 +1,22 @@
 package gridRenderer;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import org.apache.commons.compress.archivers.ArchiveException;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.globus.gram.GramJob;
 import org.globus.gram.GramJobListener;
 import org.globus.io.urlcopy.UrlCopy;
@@ -200,6 +212,13 @@ public class GridRenderer {
 					GlobusURL tarSrc = new GlobusURL(FTP_PROTOCOL + "://" + node + "/" + resultTarPath);
 					GlobusURL tarDest = new GlobusURL(FTP_PROTOCOL + "://" + localhost + "/" + HOME_DIR.relativize(POVRAY_DIR) + "/" + tarName);
 					urlCopy(tarSrc, tarDest);
+
+					// Untar results locally
+					System.out.println("Unpack tar result file from node " + node + " locally");
+					FileInputStream tarFileStream;
+					tarFileStream = new FileInputStream(new File(POVRAY_DIR + "/" + tarName));
+					untarAllFilesToDirectory(tarFileStream, POVRAY_DIR);
+					tarFileStream.close();
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -207,6 +226,9 @@ public class GridRenderer {
 		}		
 	}
 
+	/*
+	 * Get Default credential
+	 */
 	private static GSSCredential getDefaultCredential() {
 		try {
 			String proxy = ConfigUtil.discoverProxyLocation();
@@ -222,6 +244,9 @@ public class GridRenderer {
 		return null;
 	}
 
+	/*
+	 * Copy src file to dest file
+	 */
 	private static void urlCopy(GlobusURL src, GlobusURL dest) {
 		UrlCopy u = new UrlCopy();
 		u.setCredentials(cred);
@@ -234,10 +259,17 @@ public class GridRenderer {
 		}
 	}
 
+	/*
+	 * Submit job described by rsl to node
+	 */
 	private static void submitAndWaitForJob(String rsl, String node) {
 		submitAndWaitForJob(rsl, node, null);
 	}
 
+	/*
+	 * Submit job described by rsl to node
+	 * Also add job listener to job
+	 */
 	private static void submitAndWaitForJob(String rsl, String node, GramJobListener jobListener) {
 		GramJob job = new GramJob(cred, rsl);
 
@@ -251,6 +283,9 @@ public class GridRenderer {
 		waitForJob(job);		
 	}
 
+	/*
+	 * Wait until job ist done
+	 */
 	private static void waitForJob(GramJob job) {
 		try {
 			while ( job.getStatus() != GramJob.STATUS_DONE) {
@@ -260,4 +295,52 @@ public class GridRenderer {
 			e.printStackTrace();
 		}
 	}
+
+	/*
+	 * Copied (and adjusted) from: http://java-tweets.blogspot.co.at/2012/07/untar-targz-file-with-apache-commons.html
+	 */
+	private static void untarAllFilesToDirectory(InputStream is, Path destDir) 
+			throws FileNotFoundException, IOException, ArchiveException{
+		int BUFFER = 2048;
+
+		/** create a TarArchiveInputStream object. **/
+		BufferedInputStream in = new BufferedInputStream(is);
+		GzipCompressorInputStream gzIn = new GzipCompressorInputStream(in);
+		TarArchiveInputStream tarIn = new TarArchiveInputStream(gzIn);
+
+		TarArchiveEntry entry = null;
+
+		/** Read the tar entries using the getNextEntry method **/
+
+		while ((entry = (TarArchiveEntry) tarIn.getNextEntry()) != null) {
+			/** If the entry is a directory, create the directory. **/
+
+			if (entry.isDirectory()) {
+				// skip
+			}
+			/**
+			 * If the entry is a file,write the decompressed file to the disk
+			 * and close destination stream.
+			 **/
+			else {
+				int count;
+				byte data[] = new byte[BUFFER];
+
+				String[] fileNameArray = entry.getName().split("/");
+				String filename = fileNameArray[fileNameArray.length-1];
+				File fo = new File(destDir + "/" + filename);
+
+				FileOutputStream fos = new FileOutputStream(fo);
+				BufferedOutputStream dest = new BufferedOutputStream(fos, BUFFER);
+				while ((count = tarIn.read(data, 0, BUFFER)) != -1) {
+					dest.write(data, 0, count);
+				}
+				dest.close();
+			}
+		}
+
+		/** Close the input stream **/
+
+		tarIn.close();
+	}	
 }
