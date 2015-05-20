@@ -133,7 +133,7 @@ public class GridRenderer {
 			    @Override
 			    public boolean accept( final File dir,
 			                           final String name ) {
-			        return name.matches( "*.png|*.tar.gz" );
+			        return name.matches( "(.*\\.png)|(.*\\.tar\\.gz)" );
 			    }
 			} );
 			for ( final File file : files ) {
@@ -248,7 +248,7 @@ public class GridRenderer {
 				
 				// Remove remote files from note
 				System.out.println("Remove remote files from node " + node);
-				rsl = "&(executable=/bin/rm)(arguments='-r' '-f' '" + REMOTE_DIR + "')";
+				rsl = "&(executable=/bin/rm)(arguments='-r' '-f' '" + REMOTE_DIR.getParent() + "')";
 				submitAndWaitForJob(rsl, node);
 			}
 		}		
