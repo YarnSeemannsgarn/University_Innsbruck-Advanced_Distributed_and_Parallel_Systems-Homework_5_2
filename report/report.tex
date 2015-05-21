@@ -101,6 +101,12 @@ Now use ant to compile the sources and build the runnable jar:
   $ ant compile jar
 \end{lstlisting}
 
+If you have no proxy, initialize one.
+
+\begin{lstlisting}[language=bash]
+  $ grid-proxy-init
+\end{lstlisting}
+
 At last run the created jar with ant, where \texttt{<frames>} is the number of frames which should be rendered:
 
 \begin{lstlisting}[language=bash]
