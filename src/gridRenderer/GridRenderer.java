@@ -84,7 +84,6 @@ public class GridRenderer {
 		renderFrames();
 		mergeFramesLocally();
 		deleteTemporaryLocalFiles();
-		//TODO: proxy-init check
 
 		// Deactivate jobs (otherwise screen stucks)
 		Deactivator.deactivateAll();
